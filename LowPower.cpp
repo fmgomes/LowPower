@@ -35,6 +35,8 @@
 #include <avr/interrupt.h>
 #include "LowPower.h"
 
+static volatile uint8_t watchdogCounter;
+
 // Only Pico Power devices can change BOD settings through software
 #if defined (__AVR_ATmega328P__) || defined (__AVR_ATmega1284P__)
 #ifndef sleep_bod_disable
@@ -581,9 +583,11 @@ void	LowPowerClass::adcNoiseReduction(period_t period, adc_t adc,
 *				(b) BOD_ON - Leave BOD module in its default state
 *
 *******************************************************************************/
-void	LowPowerClass::powerDown(period_t period, adc_t adc, bod_t bod)
+uint8_t	LowPowerClass::powerDown(period_t period, adc_t adc, bod_t bod)
 {
 	if (adc == ADC_OFF)	ADCSRA &= ~(1 << ADEN);
+	
+	watchdogCounter = 0;
 	
 	if (period != SLEEP_FOREVER)
 	{
@@ -604,6 +608,8 @@ void	LowPowerClass::powerDown(period_t period, adc_t adc, bod_t bod)
 	}
 	
 	if (adc == ADC_OFF) ADCSRA |= (1 << ADEN);
+	
+	return(watchdogCounter);
 }
 
 /*******************************************************************************
@@ -856,6 +862,7 @@ ISR (WDT_vect)
 {
 	// WDIE & WDIF is cleared in hardware upon entering this ISR
 	wdt_disable();
+	++watchdogCounter;
 }
 
 LowPowerClass LowPower;
